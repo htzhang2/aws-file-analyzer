@@ -65,13 +65,21 @@ namespace OpenAiChat.Controllers
                 do
                 {
                     response = await _s3Client.ListObjectsV2Async(request);
-                    foreach (var s3Object in response.S3Objects)
+                    if (response != null)
                     {
-                        var preSignedUrl = await GeneratePreSignedUrl(s3Object.Key, 60);
+                        if (response.S3Objects != null)
+                        {
+                            foreach (var s3Object in response.S3Objects)
+                            {
+                                var preSignedUrl = await GeneratePreSignedUrl(s3Object.Key, 60);
 
-                        files[s3Object.Key] = preSignedUrl;
+                                files[s3Object.Key] = preSignedUrl;
+                            }
+                        }
+
+                        request.ContinuationToken = response.NextContinuationToken;
                     }
-                    request.ContinuationToken = response.NextContinuationToken;
+                    
                 } while (response != null && response.IsTruncated != null ? (bool)(response.IsTruncated) : false);
 
                 return Ok(files);
