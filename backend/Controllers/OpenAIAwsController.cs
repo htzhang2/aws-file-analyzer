@@ -5,6 +5,7 @@ using OpenAI.Chat;
 using OpenAiChat.Dto;
 using OpenAiChat.Services;
 using OpenAiChat.Utils;
+using System.Net;
 
 namespace OpenAiChat.Controllers
 {
@@ -87,6 +88,10 @@ namespace OpenAiChat.Controllers
             }
             catch (AmazonS3Exception ex)
             {
+                if (ex.StatusCode == HttpStatusCode.NotFound)
+                {
+                    return BadRequest($"Bucket {bucketName} not exist!");
+                }
                 return StatusCode(500, $"S3 error: {ex.Message}");
             }
         }
