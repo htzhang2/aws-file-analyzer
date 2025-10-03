@@ -1,8 +1,12 @@
 using Amazon.S3;
 using Amazon.S3.Model;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using OpenAI.Chat;
+using OpenAiChat.Data;
 using OpenAiChat.Dto;
+using OpenAiChat.Models;
 using OpenAiChat.Services;
 using OpenAiChat.Utils;
 using System.Net;
@@ -18,6 +22,7 @@ namespace OpenAiChat.Controllers
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<OpenAIAwsController> _logger;
         private readonly ChatClient _chatClient;
+        private readonly FileUploadEfDbContext _dbContext;
         private readonly IAmazonS3 _s3Client;
         private readonly IImageService _imageService;
         private readonly ITextService _textService;
@@ -26,6 +31,7 @@ namespace OpenAiChat.Controllers
             IHttpClientFactory httpClientFactory,
             IAmazonS3 s3Client,
             ChatClient chatClient,
+            FileUploadEfDbContext context,
             IImageService imageService,
             ITextService textService,
             ILogger<OpenAIAwsController> logger)
@@ -33,6 +39,7 @@ namespace OpenAiChat.Controllers
             _httpClientFactory = httpClientFactory;
             _s3Client = s3Client;
             _chatClient = chatClient;
+            _dbContext = context;
             _textService = textService;
             _imageService = imageService;
             _logger = logger;
@@ -97,6 +104,58 @@ namespace OpenAiChat.Controllers
         }
 
         /// <summary>
+        ///  List file loaded last few days
+        /// </summary>
+        /// <param name="days">how many days ahead</param>
+        /// <param name="filesLimit">how many files to display</param>
+        /// <returns>Status code of each file load record</returns>
+        /// [ProducesResponseType(StatusCodes.Status200OK // Success response file list
+        /// [ProducesResponseType(StatusCodes.Status400BadRequest)] // 400: invalid input or wrong connection string
+        /// [ProducesResponseType(StatusCodes.Status404NotFound)] // 404: no files loaded
+        /// [ProducesResponseType(StatusCodes.Status500InternalServerError)] // 500: internal server error
+        [HttpGet("ListLoadHistory")]
+        public async Task<IActionResult> GetLoadHistory([FromQuery]int days=1, [FromQuery]int filesLimit=30)
+        {
+            if (days <= 0 || filesLimit <= 0)
+            {
+                return BadRequest($"Invalid input!");
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            var fromDate = now.AddDays(-days);
+            
+            // Test connection string
+            bool isConnectionStringGood = await DbUtils.IsDbConnectionStringGood(_dbContext).ConfigureAwait(false);
+
+            if (!isConnectionStringGood)
+            {
+                return BadRequest($"Connection string is wrong!");
+            }
+
+            try
+            {
+                // Only take 30 files
+                List<FileUploadModel> result = await _dbContext.FileUploadHistory
+                    .Where(f => f.LoadTime >= fromDate && f.LoadTime <= now)
+                    .Take(filesLimit)
+                    .ToListAsync()
+                    .ConfigureAwait(false);
+
+                if (result != null && result.Any())
+                {
+                    return Ok(result);
+                }
+
+                return NotFound($"No files loaded last {days}");
+                
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"EF error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         ///  Upload a file to AWS S3
         /// </summary>
         /// <param name="file"></param>
@@ -128,8 +187,26 @@ namespace OpenAiChat.Controllers
 
                 var presignedUrl = await GeneratePreSignedUrl(key, 60);
 
-                // var fileUrl = $"https://{S3BucketName}.s3.amazonaws.com/{key}";
+                bool isConnectionStringGood = await DbUtils.IsDbConnectionStringGood(_dbContext).ConfigureAwait(false);
 
+                // Save file meta data to SQL if connection string is valid
+                if (isConnectionStringGood)
+                {
+                    // prepare file meta information
+                    var model = new FileUploadModel
+                    {
+                        LocalFileName = file.FileName,
+                        FileLengthInBytes = (int)(file.Length),
+                        AwsKey = key,
+                        PresignedUrl = presignedUrl,
+                        FileExtension = file.ContentType,
+                        LoadTime = DateTime.Now
+                    };
+
+                    _dbContext.FileUploadHistory.Add(model);
+                    var savedCount = await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+                }
+                    
                 return Ok(new { fileUrl = presignedUrl });
             }
             catch (AmazonS3Exception ex)

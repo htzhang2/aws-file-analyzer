@@ -2,7 +2,7 @@
 Imagine your desktop stored many old photos or text files, you forget where photos were taken, or what is the summary for text file. You want to upload these files to AWS S3, then use OpenAI api to analyze.
 
 A full-stack project with .NET 8 API + React UI.  
-Uploads local files to AWS S3, generate a presigned url and analyzes url with OpenAI API.
+Uploads local files to AWS S3, save file meta inforamtion into Azure SQL db, generate a presigned url and analyzes url with OpenAI API.
 
 ## 🚀 Demo Screenshots
 
@@ -15,18 +15,20 @@ Uploads local files to AWS S3, generate a presigned url and analyzes url with Op
 ![API Summary](./screenshots/api-analyze-image.png)
 
 ## 🚀 Tech Stack
-- Backend: .NET 8 Web API (C#)
+- Backend: .NET 8 Web API (C#), EF Core
 - Frontend: React + Axios
-- Cloud: AWS S3, OpenAI API
+- Cloud: AWS S3, Azure SQL Db
+- OpenAI API
 
 ## 📦 How to Run Locally
 ### Backend
 ```bash
 cd backend
-update OpenAI:ApiKey in appsettings.development.json
+update OpenAI:ApiKey, ConnectionStrings:DefaultConnection in appsettings.development.json
 update S3BucketName in OpenAwsController.cs
 aws configure (for aws_access_key_id / aws_secret_access_key)
 dotnet restore
+dotnet ef database update
 dotnet run
 
 ### Frontend
@@ -39,5 +41,5 @@ npm start
 ## Future Plan 
 
 Deploy backend service to AWS
-Save analysis result to DynamoDB
+Save analysis result to Azure SQL Db
 More file type support (etc. PDF/audio/video)

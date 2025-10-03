@@ -1,5 +1,7 @@
 using Amazon.S3;
+using Microsoft.EntityFrameworkCore;
 using OpenAI.Chat;
+using OpenAiChat.Data;
 using OpenAiChat.Services;
 using System.Reflection;
 
@@ -31,6 +33,18 @@ builder.Services.AddSwaggerGen(options =>
     // Instruct Swashbuckle to include XML comments
     options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
 });
+
+// Azure EF Core
+builder.Services.AddDbContext<FileUploadEfDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
+    sqlOptions =>
+    {
+        sqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 5,                // how many times to retry
+                maxRetryDelay: TimeSpan.FromSeconds(10), // wait between retries
+                errorNumbersToAdd: null          // retry all transient errors
+            );
+    }));
 
 // Configure AWS services from appsettings.json
 builder.Services.AddAWSService<IAmazonS3>();
