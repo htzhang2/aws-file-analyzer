@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using OpenAiChat.Data;
 
@@ -11,9 +12,11 @@ using OpenAiChat.Data;
 namespace OpenAiChat.Migrations
 {
     [DbContext(typeof(FileUploadEfDbContext))]
-    partial class FileUploadEfDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251003221007_AddNewTable")]
+    partial class AddNewTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

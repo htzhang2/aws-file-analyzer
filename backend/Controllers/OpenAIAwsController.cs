@@ -154,6 +154,53 @@ namespace OpenAiChat.Controllers
                 return StatusCode(500, $"EF error: {ex.Message}");
             }
         }
+        /// <summary>
+        ///  List all analyzed files
+        /// </summary>
+        /// <returns>Status code</returns>
+        /// [ProducesResponseType(StatusCodes.Status200OK // Success response parsed files
+        /// [ProducesResponseType(StatusCodes.Status400BadRequest)] // 400: wrong connection string
+        /// [ProducesResponseType(StatusCodes.Status404NotFound)] // 404: no files loaded
+        /// [ProducesResponseType(StatusCodes.Status500InternalServerError)] // 500: internal server error
+        [HttpGet("ListAnalysisResults")]
+        public async Task<IActionResult> GetAnalysisResults()
+        {
+            // Test connection string
+            bool isConnectionStringGood = await DbUtils.IsDbConnectionStringGood(_dbContext).ConfigureAwait(false);
+
+            if (!isConnectionStringGood)
+            {
+                return BadRequest($"Connection string is wrong!");
+            }
+
+            try
+            {
+                var query = from a in _dbContext.FileUploadHistory
+                            join b in _dbContext.FileAnalysisResult
+                            on a.PresignedUrl equals b.PresignedUrl
+                            select new
+                            {
+                                a.LocalFileName,
+                                a.FileExtension,
+                                b.AnalysisText
+                            };
+
+                var results = await query.ToListAsync()
+                    .ConfigureAwait(false);
+
+                if (results != null && results.Any())
+                {
+                    return Ok(results);
+                }
+
+                return NotFound($"No files analyzed");
+
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"EF error: {ex.Message}");
+            }
+        }
 
         /// <summary>
         ///  Upload a file to AWS S3
@@ -268,6 +315,21 @@ namespace OpenAiChat.Controllers
                 try
                 {
                     var geoInfo = await _imageService.AnalyzeImageAsync(fileUrl).ConfigureAwait(false);
+
+                    bool isConnectionStringGood = await DbUtils.IsDbConnectionStringGood(_dbContext).ConfigureAwait(false);
+
+                    if (isConnectionStringGood)
+                    {
+                        var analysisResult = new FileAnalysisResultModel()
+                        {
+                            PresignedUrl = fileUrl,
+                            AnalysisText = geoInfo,
+                        };
+
+                        _dbContext.FileAnalysisResult.Add(analysisResult);
+
+                        var savedCount = await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+                    }
 
                     return Ok(geoInfo);
                 }
