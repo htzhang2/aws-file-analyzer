@@ -2,6 +2,7 @@ using Amazon.S3;
 using Microsoft.EntityFrameworkCore;
 using OpenAI.Chat;
 using OpenAiChat.Data;
+using OpenAiChat.Repository;
 using OpenAiChat.Services;
 using System.Reflection;
 
@@ -45,6 +46,9 @@ builder.Services.AddDbContext<FileUploadEfDbContext>(options =>
                 errorNumbersToAdd: null          // retry all transient errors
             );
     }));
+
+// The UnitOfWork will manage the lifecycle of the DbContext instance
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // Configure AWS services from appsettings.json
 builder.Services.AddAWSService<IAmazonS3>();

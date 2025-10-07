@@ -1,12 +1,11 @@
 using Amazon.S3;
 using Amazon.S3.Model;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using OpenAI.Chat;
-using OpenAiChat.Data;
 using OpenAiChat.Dto;
 using OpenAiChat.Models;
+using OpenAiChat.Repository;
 using OpenAiChat.Services;
 using OpenAiChat.Utils;
 using System.Net;
@@ -22,27 +21,27 @@ namespace OpenAiChat.Controllers
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<OpenAIAwsController> _logger;
         private readonly ChatClient _chatClient;
-        private readonly FileUploadEfDbContext _dbContext;
         private readonly IAmazonS3 _s3Client;
         private readonly IImageService _imageService;
         private readonly ITextService _textService;
+        private readonly IUnitOfWork _unitOfWork;
 
         public OpenAIAwsController(
             IHttpClientFactory httpClientFactory,
             IAmazonS3 s3Client,
             ChatClient chatClient,
-            FileUploadEfDbContext context,
             IImageService imageService,
             ITextService textService,
-            ILogger<OpenAIAwsController> logger)
+            ILogger<OpenAIAwsController> logger,
+            IUnitOfWork unitOfWork)
         {
             _httpClientFactory = httpClientFactory;
             _s3Client = s3Client;
             _chatClient = chatClient;
-            _dbContext = context;
             _textService = textService;
             _imageService = imageService;
             _logger = logger;
+            _unitOfWork = unitOfWork;
         }
 
         /// <summary>
@@ -125,7 +124,7 @@ namespace OpenAiChat.Controllers
             var fromDate = now.AddDays(-days);
             
             // Test connection string
-            bool isConnectionStringGood = await DbUtils.IsDbConnectionStringGood(_dbContext).ConfigureAwait(false);
+            bool isConnectionStringGood = await _unitOfWork.IsDbConnectionStringGood().ConfigureAwait(false);
 
             if (!isConnectionStringGood)
             {
@@ -134,9 +133,9 @@ namespace OpenAiChat.Controllers
 
             try
             {
-                // Only take 30 files
-                List<FileUploadModel> result = await _dbContext.FileUploadHistory
-                    .Where(f => f.LoadTime >= fromDate && f.LoadTime <= now)
+                // Only take several files
+                var result = await _unitOfWork.FileUploadHistory
+                    .Find(f => f.LoadTime >= fromDate && f.LoadTime <= now)
                     .Take(filesLimit)
                     .ToListAsync()
                     .ConfigureAwait(false);
@@ -166,7 +165,7 @@ namespace OpenAiChat.Controllers
         public async Task<IActionResult> GetAnalysisResults()
         {
             // Test connection string
-            bool isConnectionStringGood = await DbUtils.IsDbConnectionStringGood(_dbContext).ConfigureAwait(false);
+            bool isConnectionStringGood = await _unitOfWork.IsDbConnectionStringGood().ConfigureAwait(false);
 
             if (!isConnectionStringGood)
             {
@@ -175,8 +174,8 @@ namespace OpenAiChat.Controllers
 
             try
             {
-                var query = from a in _dbContext.FileUploadHistory
-                            join b in _dbContext.FileAnalysisResult
+                var query = from a in _unitOfWork.FileUploadHistory.GetDbSet()
+                            join b in _unitOfWork.FileAnalysisResult.GetDbSet()
                             on a.PresignedUrl equals b.PresignedUrl
                             select new
                             {
@@ -184,7 +183,6 @@ namespace OpenAiChat.Controllers
                                 a.FileExtension,
                                 b.AnalysisText
                             };
-
                 var results = await query.ToListAsync()
                     .ConfigureAwait(false);
 
@@ -234,7 +232,7 @@ namespace OpenAiChat.Controllers
 
                 var presignedUrl = await GeneratePreSignedUrl(key, 60);
 
-                bool isConnectionStringGood = await DbUtils.IsDbConnectionStringGood(_dbContext).ConfigureAwait(false);
+                bool isConnectionStringGood = await _unitOfWork.IsDbConnectionStringGood().ConfigureAwait(false);
 
                 // Save file meta data to SQL if connection string is valid
                 if (isConnectionStringGood)
@@ -250,8 +248,9 @@ namespace OpenAiChat.Controllers
                         LoadTime = DateTime.Now
                     };
 
-                    _dbContext.FileUploadHistory.Add(model);
-                    var savedCount = await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+
+                    _unitOfWork.FileUploadHistory.Add(model);
+                    await _unitOfWork.CompleteAsync().ConfigureAwait(false);
                 }
                     
                 return Ok(new { fileUrl = presignedUrl });
@@ -316,7 +315,7 @@ namespace OpenAiChat.Controllers
                 {
                     var geoInfo = await _imageService.AnalyzeImageAsync(fileUrl).ConfigureAwait(false);
 
-                    bool isConnectionStringGood = await DbUtils.IsDbConnectionStringGood(_dbContext).ConfigureAwait(false);
+                    bool isConnectionStringGood = await _unitOfWork.IsDbConnectionStringGood().ConfigureAwait(false);
 
                     if (isConnectionStringGood)
                     {
@@ -326,9 +325,8 @@ namespace OpenAiChat.Controllers
                             AnalysisText = geoInfo,
                         };
 
-                        _dbContext.FileAnalysisResult.Add(analysisResult);
-
-                        var savedCount = await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+                        _unitOfWork.FileAnalysisResult.Add(analysisResult);
+                        var savedCount = await _unitOfWork.CompleteAsync().ConfigureAwait(false);
                     }
 
                     return Ok(geoInfo);
@@ -346,9 +344,23 @@ namespace OpenAiChat.Controllers
                 try
                 {
                     // Ask the service to summarize
-                    var result = await _textService.SummarizeTextAsync(fileUrl).ConfigureAwait(false);
-                    
-                    return Ok(result);
+                    var summary = await _textService.SummarizeTextAsync(fileUrl).ConfigureAwait(false);
+
+                    bool isConnectionStringGood = await _unitOfWork.IsDbConnectionStringGood().ConfigureAwait(false);
+
+                    if (isConnectionStringGood)
+                    {
+                        var analysisResult = new FileAnalysisResultModel()
+                        {
+                            PresignedUrl = fileUrl,
+                            AnalysisText = summary,
+                        };
+
+                        _unitOfWork.FileAnalysisResult.Add(analysisResult);
+                        var savedCount = await _unitOfWork.CompleteAsync().ConfigureAwait(false);
+                    }
+
+                    return Ok(summary);
                 }
                 catch (Exception ex)
                 {
