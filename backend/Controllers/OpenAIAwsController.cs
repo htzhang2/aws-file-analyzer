@@ -16,8 +16,6 @@ namespace OpenAiChat.Controllers
     [Route("[controller]")]
     public class OpenAIAwsController : ControllerBase
     {
-        private const string S3BucketName = "[TO_BE_UPDATE]";
-
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<OpenAIAwsController> _logger;
         private readonly ChatClient _chatClient;
@@ -25,6 +23,7 @@ namespace OpenAiChat.Controllers
         private readonly IImageService _imageService;
         private readonly ITextService _textService;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IConfiguration _configuration;
 
         public OpenAIAwsController(
             IHttpClientFactory httpClientFactory,
@@ -33,7 +32,8 @@ namespace OpenAiChat.Controllers
             IImageService imageService,
             ITextService textService,
             ILogger<OpenAIAwsController> logger,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            IConfiguration configuration)
         {
             _httpClientFactory = httpClientFactory;
             _s3Client = s3Client;
@@ -42,19 +42,21 @@ namespace OpenAiChat.Controllers
             _imageService = imageService;
             _logger = logger;
             _unitOfWork = unitOfWork;
+            _configuration = configuration;
         }
 
         /// <summary>
         ///  List file name and presigned url under s3 bucket name
         /// </summary>
-        /// <param name="bucketName"></param>
         /// <returns></returns>
         /// [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(string))] // Success response map (fileName/presigned url)
         /// [ProducesResponseType(StatusCodes.Status400BadRequest)] // 400: wrong bucket
         /// [ProducesResponseType(StatusCodes.Status500InternalServerError)] // 500: internal server error
         [HttpGet("ListS3Files")]
-        public async Task<IActionResult> GetS3FilesUrls([FromQuery] string bucketName = S3BucketName)
+        public async Task<IActionResult> GetS3FilesUrls()
         {
+            string bucketName = _configuration["AWS:S3BucketName"];
+
             if (string.IsNullOrWhiteSpace(bucketName))
             {
                 return BadRequest("Empty bucket name");
@@ -78,7 +80,7 @@ namespace OpenAiChat.Controllers
                         {
                             foreach (var s3Object in response.S3Objects)
                             {
-                                var preSignedUrl = await GeneratePreSignedUrl(s3Object.Key, 60);
+                                var preSignedUrl = await GeneratePreSignedUrl(s3Object.Key, 60, bucketName);
 
                                 files[s3Object.Key] = preSignedUrl;
                             }
@@ -216,13 +218,19 @@ namespace OpenAiChat.Controllers
                 return BadRequest("File is empty or not provided.");
             }
 
+            string bucketName = _configuration["AWS:S3BucketName"];
+            if (string.IsNullOrWhiteSpace(bucketName))
+            {
+                return BadRequest("Empty bucket name");
+            }
+
             var key = Guid.NewGuid().ToString() + Path.GetExtension(file.FileName); // Use a unique key
 
             try
             {
                 var putObjectRequest = new PutObjectRequest
                 {
-                    BucketName = S3BucketName,
+                    BucketName = bucketName,
                     Key = key,
                     InputStream = file.OpenReadStream(),
                     ContentType = file.ContentType
@@ -230,7 +238,7 @@ namespace OpenAiChat.Controllers
 
                 await _s3Client.PutObjectAsync(putObjectRequest);
 
-                var presignedUrl = await GeneratePreSignedUrl(key, 60);
+                var presignedUrl = await GeneratePreSignedUrl(key, 60, bucketName);
 
                 bool isConnectionStringGood = await _unitOfWork.IsDbConnectionStringGood().ConfigureAwait(false);
 
@@ -404,7 +412,7 @@ namespace OpenAiChat.Controllers
             }
         }
 
-        private async Task<string> GeneratePreSignedUrl(string objectKey, double durationInMinutes, string bucketName = S3BucketName)
+        private async Task<string> GeneratePreSignedUrl(string objectKey, double durationInMinutes, string bucketName)
         {
             var request = new GetPreSignedUrlRequest
             {
