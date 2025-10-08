@@ -1,5 +1,6 @@
 using Amazon.S3;
 using Amazon.S3.Model;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OpenAI.Chat;
@@ -14,6 +15,7 @@ namespace OpenAiChat.Controllers
 {
     [ApiController]
     [Route("[controller]")]
+    [Authorize]
     public class OpenAIAwsController : ControllerBase
     {
         private const string S3BucketName = "[TO_BE_UPDATE]";
