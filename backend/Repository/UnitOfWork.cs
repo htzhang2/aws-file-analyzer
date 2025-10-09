@@ -13,6 +13,7 @@ namespace OpenAiChat.Repository
             _context = context;
             FileUploadHistory = new GenericRepository<FileUploadModel>(_context);
             FileAnalysisResult = new GenericRepository<FileAnalysisResultModel>(_context);
+            UserLogin = new GenericRepository<UserLoginModel>(_context);
         }
 
         public async Task<bool> IsDbConnectionStringGood()
@@ -23,6 +24,8 @@ namespace OpenAiChat.Repository
         }
         public IGenericRepository<FileUploadModel> FileUploadHistory { get; private set; }
         public IGenericRepository<FileAnalysisResultModel> FileAnalysisResult { get; private set; }
+        public IGenericRepository<UserLoginModel> UserLogin { get; private set; }
+
 
         public async Task<int> CompleteAsync()
         {

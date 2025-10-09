@@ -8,6 +8,8 @@ namespace OpenAiChat.Repository
 
         IGenericRepository<FileAnalysisResultModel> FileAnalysisResult { get; }
 
+        IGenericRepository<UserLoginModel> UserLogin{ get; }
+
         Task<bool> IsDbConnectionStringGood();
         Task<int> CompleteAsync();
     }

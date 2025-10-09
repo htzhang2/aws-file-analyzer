@@ -13,5 +13,7 @@ namespace OpenAiChat.Data
         public DbSet<FileUploadModel> FileUploadHistory { get; set; }
 
         public DbSet<FileAnalysisResultModel> FileAnalysisResult { get; set; }
+
+        public DbSet<UserLoginModel> UserLogin { get; set; }
     }
 }
