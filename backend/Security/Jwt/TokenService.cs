@@ -20,7 +20,7 @@ namespace OpenAiChat.Security.Jwt
                 issuer: _config["Jwt:Issuer"],
                 audience: _config["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(double.Parse(_config["Jwt:ExpiresInMinutes"] ?? "60")),
+                expires: DateTime.UtcNow.AddMinutes(double.Parse(_config["Jwt:ExpiresInMinutes"] ?? "15")),
                 signingCredentials: creds);
 
             string jwtStringToken =  new JwtSecurityTokenHandler().WriteToken(token);
