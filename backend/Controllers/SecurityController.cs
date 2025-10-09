@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using OpenAiChat.Dto;
 using OpenAiChat.Models;
 using OpenAiChat.Repository;
@@ -45,7 +44,11 @@ namespace OpenAiChat.Controllers
                     .GetAllAsync()
                     .ConfigureAwait(false);
 
-            var existingLogin = existingLogins.FirstOrDefault(login => login.Username.Equals(user) && login.Password.Equals(pwd));
+
+            var existingLogin = existingLogins.FirstOrDefault(
+                login => login.Username.Equals(user) &&
+                BCrypt.Net.BCrypt.Verify(pwd, login.Password));
+
             if (existingLogin == null)
             {
                 return BadRequest("Invalid login!");
@@ -94,11 +97,13 @@ namespace OpenAiChat.Controllers
                 return BadRequest("User exist!");
             }
 
+            string encryptedPwd = BCrypt.Net.BCrypt.HashPassword(pwd);
+
             // Save username and password
             var login = new UserLoginModel
             {
                 Username = user,
-                Password = pwd
+                Password = encryptedPwd
             };
             _unitOfWork.UserLogin.Add(login);
 
