@@ -83,14 +83,14 @@ namespace OpenAiChat.Controllers
             {
                 return BadRequest("Empty username or password!");
             }
-            string user = userNamePasswd.UserName;
+            string userName = userNamePasswd.UserName;
             string pwd = userNamePasswd.Password;
 
             var existingLogins = await _unitOfWork.UserLogin
                     .GetAllAsync()
                     .ConfigureAwait(false);
 
-            var duplicateUser = existingLogins.FirstOrDefault(user => user.Username.Equals(user));
+            var duplicateUser = existingLogins.FirstOrDefault(user => user.Username.Equals(userName));
 
             if (duplicateUser != null)
             {
@@ -102,7 +102,7 @@ namespace OpenAiChat.Controllers
             // Save username and password
             var login = new UserLoginModel
             {
-                Username = user,
+                Username = userName,
                 Password = encryptedPwd
             };
             _unitOfWork.UserLogin.Add(login);
