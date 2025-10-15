@@ -6,6 +6,7 @@ export default function App() {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [analyzeResult, setAnalyzeResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [message, setMessage] = useState("");
   const [fileUrl, setFileUrl] = useState("");
 
@@ -25,7 +26,7 @@ export default function App() {
       formData.append("file", file);
 
       // Replace with your API endpoint
-      const res = await axios.post("http://localhost:5030/OpenAIAws/AwsFileUpload", formData, {
+      const res = await axios.post("https://localhost:5000/OpenAIAws/AwsFileUpload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
@@ -43,11 +44,11 @@ export default function App() {
   };
 
   const handleAnalyze = async () => {
-    setLoading(true);
+    setAnalyzing(true);
     setMessage("");
     try {
       // Replace with your API endpoint
-      const res = await axios.post("http://localhost:5030/OpenAIAws/OpenAISummary", {
+      const res = await axios.post("https://localhost:5000/OpenAIAws/OpenAISummary", {
         fileUrl: fileUrl, // or S3 key if your backend needs it
       });
 
@@ -59,7 +60,7 @@ export default function App() {
       console.error(err);
       setMessage("Analysis failed ❌");
     } finally {
-      setLoading(false);
+      setAnalyzing(false);
     }
   };
 
@@ -95,7 +96,7 @@ export default function App() {
               : "bg-green-600 hover:bg-green-700 text-white"
           }`}
         >
-          {loading ? "Analyzing..." : "Analyze"}
+          {analyzing ? "Analyzing..." : "Analyze"}
         </button>
 
         {message && <p className="mt-2 text-center">{message}</p>}
