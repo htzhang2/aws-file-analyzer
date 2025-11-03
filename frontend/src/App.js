@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import LoginForm from './LoginForm';
 import FileUploadAnalyzer from "./FileUploadAnalyze";
+import AuthContainer from "./AuthContainer";
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -40,7 +40,7 @@ export default function App() {
       {isLoggedIn ? (
         <FileUploadAnalyzer handleLogout={handleLogout}/>
       ) : (
-        <LoginForm onLoginSuccess={handleSuccessfulLogin} />
+        <AuthContainer onLoginSuccess={handleSuccessfulLogin} />
       )}
     </div>
   );

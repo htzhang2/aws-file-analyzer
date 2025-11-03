@@ -4,7 +4,7 @@ import axios from 'axios'; // Import Axios
 // Assume your backend API URL for login is:
 const LOGIN_URL = 'https://localhost:5000/api/Security/login'; 
 
-const LoginForm = ({ onLoginSuccess }) => {
+const LoginForm = ({ onLoginSuccess, onSwitchToRegister }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false); // For button state
@@ -109,6 +109,21 @@ const LoginForm = ({ onLoginSuccess }) => {
         >
           {isLoading ? 'Processing...' : 'Log In'}
         </button>
+
+        {/* Link to register form */}
+        <p className="mt-4 text-sm text-center text-gray-600">
+            Don't have an account?
+            <a 
+              href="#" 
+              onClick={(e) => { 
+                e.preventDefault(); 
+                onSwitchToRegister(); 
+              }} 
+              className="ml-1 font-medium text-indigo-600 hover:text-indigo-500"
+            >
+              Register
+            </a>
+        </p>
       </form>
   );
 };
