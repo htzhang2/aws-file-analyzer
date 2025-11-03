@@ -17,12 +17,20 @@ const FileUploadAnalyzer = ({handleLogout}) => {
         setAnalyzeResult(null);
     };
 
+  const token = localStorage.getItem('authToken');
+  
+  if (token)
+  {
+    // Set the Authorization header globally for all subsequent requests
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  }
+
   const handleUpload = async () => {
     if (!file) return;
     setLoading(true);
     setMessage("");
 
-    const token = localStorage.getItem('authToken');
+    
     try {
       const formData = new FormData();
       formData.append("file", file);
