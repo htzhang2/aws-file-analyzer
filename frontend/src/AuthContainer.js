@@ -15,7 +15,7 @@ function AuthContainer({ onLoginSuccess }) {
   };
 
   return (
-    <div className="bg-white shadow-md rounded-2xl p-6 w-full max-w-md">
+    <>
       {currentView === 'login' ? (
         // --- Display Login Form ---
         <LoginForm 
@@ -30,7 +30,7 @@ function AuthContainer({ onLoginSuccess }) {
           onSwitchToLogin={switchToLogin} 
         />
       )}
-    </div>
+    </>
   );
 }
 
