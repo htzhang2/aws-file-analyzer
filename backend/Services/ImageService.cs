@@ -24,9 +24,14 @@ Analyze the uploaded image and respond ONLY in valid JSON format, with the follo
   ""landmark"": string | null,
   ""weather"": string | null,
   ""category"": string,   // e.g. 'architecture', 'nature', 'food', 'people'
+  ""caption"": string | null, // a brief description of the image
+  ""confidence"": float | null // confidence score between 0 and 1
 }
 
 Rules:
+- If you are at least 60% confident, include your best guess.
+- For landmark, include the most likely famous building or place name if visible.
+- Return null ONLY if it truly cannot be inferred.
 - Return only JSON, no explanation.
 - If a field cannot be inferred, use null.
 ";
@@ -43,8 +48,8 @@ Rules:
 
             var options = new ChatCompletionOptions
             {
-                ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat()
-                // Removed Model property assignment, as ChatCompletionOptions does not have a Model property.
+                ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
+                Temperature = (float?)0.2
             };
 
             var completionResult = await _chatClient.CompleteChatAsync(messages).ConfigureAwait(false);

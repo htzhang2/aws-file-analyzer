@@ -7,5 +7,7 @@
         public string landmark { get; set; } = string.Empty;
         public string weather { get; set; } = string.Empty;
         public string category { get; set; } = string.Empty;
+        public string caption { get; set; } = string.Empty;
+        public float confidence { get; set; }
     }
 }
