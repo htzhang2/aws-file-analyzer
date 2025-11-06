@@ -20,6 +20,7 @@ Analyze the uploaded image and respond ONLY in valid JSON format, with the follo
 
 {
   ""city"": string | null,
+  ""region"": string | null,
   ""country"": string | null,
   ""landmark"": string | null,
   ""weather"": string | null,
@@ -31,6 +32,7 @@ Analyze the uploaded image and respond ONLY in valid JSON format, with the follo
 
 Rules:
 - If you are at least 51% confident, include your best guess.
+- Always include your best-guess city/region/country even if uncertain.
 - For landmark, include the most likely famous building or place name if visible.
 - For landmark, Use your best-guess name even if partially visible or you are only moderately sure.
 - Return only JSON, no explanation.
