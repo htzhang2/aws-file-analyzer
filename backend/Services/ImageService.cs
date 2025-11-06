@@ -29,11 +29,11 @@ Analyze the uploaded image and respond ONLY in valid JSON format, with the follo
 }
 
 Rules:
-- If you are at least 60% confident, include your best guess.
+- If you are at least 51% confident, include your best guess.
 - For landmark, include the most likely famous building or place name if visible.
-- Return null ONLY if it truly cannot be inferred.
+- For landmark, Use your best-guess name even if partially visible or you are only moderately sure.
 - Return only JSON, no explanation.
-- If a field cannot be inferred, use null.
+- If a field completely unknown, use null.
 ";
 
             var systemPrompt = $"You are an image analysis assistant.";
