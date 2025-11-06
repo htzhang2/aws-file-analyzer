@@ -25,7 +25,8 @@ Analyze the uploaded image and respond ONLY in valid JSON format, with the follo
   ""weather"": string | null,
   ""category"": string,   // e.g. 'architecture', 'nature', 'food', 'people'
   ""caption"": string | null, // a brief description of the image
-  ""confidence"": float | null // confidence score between 0 and 1
+  ""confidence"": float | null, // confidence score between 0 and 1
+  ""justification"": string | null // brief explanation of your analysis
 }
 
 Rules:

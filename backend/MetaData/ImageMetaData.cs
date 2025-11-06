@@ -9,5 +9,6 @@
         public string category { get; set; } = string.Empty;
         public string caption { get; set; } = string.Empty;
         public float confidence { get; set; }
+        public string justification { get; set; } = string.Empty;
     }
 }
