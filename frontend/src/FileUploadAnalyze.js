@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 
-const FileUploadAnalyzer = ({handleLogout}) => {
+const FileUploadAnalyzer = ({handleLogout, setAnalysisText, cleanAnalysisText}) => {
     const [file, setFile] = useState(null);
     const [uploadSuccess, setUploadSuccess] = useState(false);
     const [analyzeResult, setAnalyzeResult] = useState(null);
@@ -15,6 +15,7 @@ const FileUploadAnalyzer = ({handleLogout}) => {
         setFile(fileName);
         setUploadSuccess(false);
         setAnalyzeResult(null);
+        cleanAnalysisText();
     };
 
   const token = localStorage.getItem('authToken');
@@ -29,7 +30,7 @@ const FileUploadAnalyzer = ({handleLogout}) => {
     if (!file) return;
     setLoading(true);
     setMessage("");
-
+    cleanAnalysisText();
     
     try {
       const formData = new FormData();
@@ -65,6 +66,7 @@ const FileUploadAnalyzer = ({handleLogout}) => {
       if (res.status === 200) {
         setAnalyzeResult(res.data);
         setMessage("Analysis complete ✅");
+        setAnalysisText(res.data);
       }
     } catch (err) {
       console.error(err);
