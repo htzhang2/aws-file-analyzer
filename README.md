@@ -1,8 +1,8 @@
 #  AWS File Analyzer
-Imagine your desktop stored many old photos or text files, you forget where photos were taken, or what is the summary for text file. You want to upload these files to AWS S3, then use OpenAI api to analyze.
+Imagine your desktop stored many old photos or text files, you forget where photos were taken, or what is the summary for text file. You want to upload these files to AWS S3, then use OpenAI api to analyze, display analysis result in structured format, then play audio summary.
 
 A full-stack project with .NET 8 API + React UI.  
-Uploads local files to AWS S3, save file meta inforamtion into Azure SQL db, generate a presigned url and analyzes url with OpenAI API.
+Login, uploads local files to AWS S3, save file meta inforamtion into Azure SQL db, generate a presigned url and analyzes url with OpenAI API.
 
 ## 🚀 Demo Screenshots
 
@@ -18,7 +18,8 @@ Uploads local files to AWS S3, save file meta inforamtion into Azure SQL db, gen
 - Backend: .NET 8 Web API (C#), EF Core
 - Frontend: React + Axios
 - Cloud: AWS S3, Azure SQL Db
-- OpenAI API
+- OpenAI: API
+- Authentication: Jwt token
 
 ## 📦 How to Run Locally
 ### Backend
@@ -41,5 +42,5 @@ npm start
 ## Future Plan 
 
 Deploy backend service to AWS
-Save analysis result to Azure SQL Db
+Photo Ablum based on analysis result
 More file type support (etc. PDF/audio/video)
