@@ -24,6 +24,7 @@ namespace OpenAiChat.Controllers
         private readonly IAmazonS3 _s3Client;
         private readonly IImageService _imageService;
         private readonly ITextService _textService;
+        private readonly IPdfService _pdfService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
 
@@ -33,6 +34,7 @@ namespace OpenAiChat.Controllers
             ChatClient chatClient,
             IImageService imageService,
             ITextService textService,
+            IPdfService pdfService,
             ILogger<OpenAIAwsController> logger,
             IUnitOfWork unitOfWork,
             IConfiguration configuration)
@@ -42,6 +44,7 @@ namespace OpenAiChat.Controllers
             _chatClient = chatClient;
             _textService = textService;
             _imageService = imageService;
+            _pdfService = pdfService;
             _logger = logger;
             _unitOfWork = unitOfWork;
             _configuration = configuration;
@@ -355,6 +358,35 @@ namespace OpenAiChat.Controllers
                 {
                     // Ask the service to summarize
                     var summary = await _textService.SummarizeTextAsync(fileUrl).ConfigureAwait(false);
+
+                    bool isConnectionStringGood = await _unitOfWork.IsDbConnectionStringGood().ConfigureAwait(false);
+
+                    if (isConnectionStringGood)
+                    {
+                        var analysisResult = new FileAnalysisResultModel()
+                        {
+                            PresignedUrl = fileUrl,
+                            AnalysisText = summary,
+                        };
+
+                        _unitOfWork.FileAnalysisResult.Add(analysisResult);
+                        var savedCount = await _unitOfWork.CompleteAsync().ConfigureAwait(false);
+                    }
+
+                    return Ok(summary);
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(StatusCodes.Status429TooManyRequests,
+                         new { message = ex.Message });
+                }
+            }
+            else if (FileUtils.IsPdfFile(contentType))
+            {
+                try
+                {
+                    // Ask the service to summarize
+                    var summary = await _pdfService.SummarizePdfAsync(fileUrl).ConfigureAwait(false);
 
                     bool isConnectionStringGood = await _unitOfWork.IsDbConnectionStringGood().ConfigureAwait(false);
 

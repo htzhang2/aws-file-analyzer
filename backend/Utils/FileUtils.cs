@@ -16,6 +16,7 @@ namespace OpenAiChat.Utils
             "text/html",
             "text/plain"
         };
+        private static readonly string PdfContentType = "application/pdf";
 
         public static bool IsImage(string contentType)
         {
@@ -33,6 +34,17 @@ namespace OpenAiChat.Utils
                 return false;
             }
             return PlainTextContentTypes.Contains(contentType);
+        }
+
+        public static bool IsPdfFile(string contentType)
+        {
+            if (string.IsNullOrEmpty(contentType))
+            {
+                return false;
+            }
+
+            // TODO: check header bytes for PDF magic number %PDF-
+            return PdfContentType.Equals(contentType);
         }
 
         /// <summary>

@@ -64,6 +64,7 @@ builder.Services.AddAWSService<IAmazonS3>();
 
 builder.Services.AddSingleton<ITextService, TextService>();
 builder.Services.AddSingleton<IImageService, ImageService>();
+builder.Services.AddSingleton<IPdfService, PdfService>();
 
 // JWT authentication
 // preserve JWT claim names (don't map "sub" -> ClaimTypes.NameIdentifier automatically)
