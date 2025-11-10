@@ -8,7 +8,6 @@ using OpenAiChat.Dto;
 using OpenAiChat.Models;
 using OpenAiChat.Repository;
 using OpenAiChat.Services;
-using OpenAiChat.Utils;
 using System.Net;
 
 namespace OpenAiChat.Controllers
@@ -18,36 +17,27 @@ namespace OpenAiChat.Controllers
     [Authorize]
     public class OpenAIAwsController : ControllerBase
     {
-        private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<OpenAIAwsController> _logger;
         private readonly ChatClient _chatClient;
         private readonly IAmazonS3 _s3Client;
-        private readonly IImageService _imageService;
-        private readonly ITextService _textService;
-        private readonly IPdfService _pdfService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
+        private readonly IFileAnalysisService _fileAnalysisService;
 
         public OpenAIAwsController(
-            IHttpClientFactory httpClientFactory,
             IAmazonS3 s3Client,
             ChatClient chatClient,
-            IImageService imageService,
-            ITextService textService,
-            IPdfService pdfService,
             ILogger<OpenAIAwsController> logger,
             IUnitOfWork unitOfWork,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IFileAnalysisService fileAnalysisService)
         {
-            _httpClientFactory = httpClientFactory;
             _s3Client = s3Client;
             _chatClient = chatClient;
-            _textService = textService;
-            _imageService = imageService;
-            _pdfService = pdfService;
             _logger = logger;
             _unitOfWork = unitOfWork;
             _configuration = configuration;
+            _fileAnalysisService = fileAnalysisService;
         }
 
         /// <summary>
@@ -296,125 +286,25 @@ namespace OpenAiChat.Controllers
 
             string fileUrl = request.fileUrl;
             
-            if (!FileUtils.IsFileUrlValid(fileUrl))
+            try
             {
-                return BadRequest("Invalid/unsupported url entered!");
+                var result = await _fileAnalysisService.AnalyzeFileAsync(fileUrl);
+                return Ok(result);
             }
-
-            // 1. Download HTML
-            var httpClient = _httpClientFactory.CreateClient();
-            httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36");
-            
-            // Check file type
-            var typeRequest = new HttpRequestMessage(HttpMethod.Get, fileUrl);
-            var headerResponse = await httpClient.SendAsync(typeRequest);
-
-            if (headerResponse == null || !headerResponse.IsSuccessStatusCode)
+            catch (InvalidDataException)
             {
-                return BadRequest("Unable to fetch header!");
+                return BadRequest("Invalid/unsupported url/contentType entered!");
             }
-
-            string contentType = headerResponse.Content.Headers.ContentType.MediaType;
-
-            if (string.IsNullOrEmpty(contentType))
+            catch (InvalidOperationException ex)
             {
-                return BadRequest("Content formet of {textUrl} NOT supported!");
-            }
-
-            // Find image info
-            if (FileUtils.IsImage(contentType))
-            {
-                try
-                {
-                    var geoInfo = await _imageService.AnalyzeImageAsync(fileUrl).ConfigureAwait(false);
-
-                    bool isConnectionStringGood = await _unitOfWork.IsDbConnectionStringGood().ConfigureAwait(false);
-
-                    if (isConnectionStringGood)
-                    {
-                        var analysisResult = new FileAnalysisResultModel()
-                        {
-                            PresignedUrl = fileUrl,
-                            AnalysisText = geoInfo,
-                        };
-
-                        _unitOfWork.FileAnalysisResult.Add(analysisResult);
-                        var savedCount = await _unitOfWork.CompleteAsync().ConfigureAwait(false);
-                    }
-
-                    return Ok(geoInfo);
-                }
-                catch (Exception ex)
-                {
-                    return StatusCode(StatusCodes.Status500InternalServerError,
+                return StatusCode(StatusCodes.Status429TooManyRequests,
                          new { message = ex.Message });
-                }
-
             }
-            // Summarize text
-            else if (FileUtils.IsPlainText(contentType))
+            catch (Exception ex)
             {
-                try
-                {
-                    // Ask the service to summarize
-                    var summary = await _textService.SummarizeTextAsync(fileUrl).ConfigureAwait(false);
-
-                    bool isConnectionStringGood = await _unitOfWork.IsDbConnectionStringGood().ConfigureAwait(false);
-
-                    if (isConnectionStringGood)
-                    {
-                        var analysisResult = new FileAnalysisResultModel()
-                        {
-                            PresignedUrl = fileUrl,
-                            AnalysisText = summary,
-                        };
-
-                        _unitOfWork.FileAnalysisResult.Add(analysisResult);
-                        var savedCount = await _unitOfWork.CompleteAsync().ConfigureAwait(false);
-                    }
-
-                    return Ok(summary);
-                }
-                catch (Exception ex)
-                {
-                    return StatusCode(StatusCodes.Status429TooManyRequests,
-                         new { message = ex.Message });
-                }
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                        new { message = ex.Message });
             }
-            else if (FileUtils.IsPdfFile(contentType))
-            {
-                try
-                {
-                    // Ask the service to summarize
-                    var summary = await _pdfService.SummarizePdfAsync(fileUrl).ConfigureAwait(false);
-
-                    bool isConnectionStringGood = await _unitOfWork.IsDbConnectionStringGood().ConfigureAwait(false);
-
-                    if (isConnectionStringGood)
-                    {
-                        var analysisResult = new FileAnalysisResultModel()
-                        {
-                            PresignedUrl = fileUrl,
-                            AnalysisText = summary,
-                        };
-
-                        _unitOfWork.FileAnalysisResult.Add(analysisResult);
-                        var savedCount = await _unitOfWork.CompleteAsync().ConfigureAwait(false);
-                    }
-
-                    return Ok(summary);
-                }
-                catch (Exception ex)
-                {
-                    return StatusCode(StatusCodes.Status429TooManyRequests,
-                         new { message = ex.Message });
-                }
-            }
-            else
-            {
-                return BadRequest("Unsupported link content");
-            }
-
 
         }
 

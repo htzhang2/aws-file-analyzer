@@ -66,6 +66,9 @@ builder.Services.AddSingleton<ITextService, TextService>();
 builder.Services.AddSingleton<IImageService, ImageService>();
 builder.Services.AddSingleton<IPdfService, PdfService>();
 
+// Scoped because IUnitOfWork and DbContext
+builder.Services.AddScoped<IFileAnalysisService, FileAnalysisService>();
+
 // JWT authentication
 // preserve JWT claim names (don't map "sub" -> ClaimTypes.NameIdentifier automatically)
 JwtSecurityTokenHandler.DefaultMapInboundClaims = false;
