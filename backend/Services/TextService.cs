@@ -37,6 +37,20 @@ namespace OpenAiChat.Services
                 inputText = inputText.Substring(0, MAX_TEXT_BYTES);
             }
 
+            var userPrompt = @"
+Summarize this file and output valid JSON in this format:
+{
+    ""caption"": ""string"",
+    ""summary"": ""string"",
+    ""highlights"": [""string""],
+    ""keywords"": [""string""],
+    ""sentiment"": ""positive|neutral|negative""
+}
+Rules:
+- caption should be one sentence describing the overall topic of the PDF.
+- summary should be 2-3 sentences summarizing the main points.
+";
+
             try
             {
 
@@ -46,7 +60,7 @@ namespace OpenAiChat.Services
                 var response = await _chatClient.CompleteChatAsync(
                     new[]
                     {
-                    new UserChatMessage($"Summarize this text in 3 sentences:\n\n{inputText}")
+                    new UserChatMessage($"{userPrompt}:\n\n{inputText}")
                     });
 
                 return response.Value.Content[0].Text;
