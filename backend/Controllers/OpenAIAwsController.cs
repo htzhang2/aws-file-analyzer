@@ -219,6 +219,22 @@ namespace OpenAiChat.Controllers
                 return BadRequest("Empty bucket name");
             }
 
+            bool isConnectionStringGood = await _unitOfWork.IsDbConnectionStringGood().ConfigureAwait(false);
+            
+            if (isConnectionStringGood)
+            {
+                // Check file already loaded before
+                var existingFile = _unitOfWork.FileUploadHistory.Find(f => (
+                    f.LocalFileName == file.FileName &&
+                    f.FileLengthInBytes == file.Length)).FirstOrDefault();
+
+                if (existingFile != null)
+                {
+                    var loadDate = existingFile.LoadTime.ToString("d");
+                    return BadRequest($"File already loaded on {loadDate}!");
+                }
+            }
+
             var key = Guid.NewGuid().ToString() + Path.GetExtension(file.FileName); // Use a unique key
 
             try
@@ -233,9 +249,7 @@ namespace OpenAiChat.Controllers
 
                 await _s3Client.PutObjectAsync(putObjectRequest);
 
-                var presignedUrl = await GeneratePreSignedUrl(key, 60, bucketName);
-
-                bool isConnectionStringGood = await _unitOfWork.IsDbConnectionStringGood().ConfigureAwait(false);
+                var presignedUrl = await GeneratePreSignedUrl(key, 60, bucketName);    
 
                 // Save file meta data to SQL if connection string is valid
                 if (isConnectionStringGood)
