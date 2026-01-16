@@ -1,4 +1,5 @@
-﻿using OpenAiChat.Models;
+﻿using Microsoft.EntityFrameworkCore;
+using OpenAiChat.Models;
 using OpenAiChat.Repository;
 using OpenAiChat.Utils;
 
@@ -56,14 +57,24 @@ namespace OpenAiChat.Services
                 throw new InvalidDataException("Content formet of {textUrl} NOT supported!");
             }
 
+            bool isConnectionStringGood = await _unitOfWork.IsDbConnectionStringGood().ConfigureAwait(false);
+            if (isConnectionStringGood)
+            {
+                //Check if analysis already exists
+                var existingAnalysis = await _unitOfWork.FileAnalysisResult
+                    .Find(f => f.PresignedUrl == fileUrl).FirstOrDefaultAsync();
+                if (existingAnalysis != null)
+                {
+                    return existingAnalysis.AnalysisText;
+                }
+            }
+
             // Find image info
             if (FileUtils.IsImage(contentType))
             {
                 try
                 {
                     var geoInfo = await _imageService.AnalyzeImageAsync(fileUrl).ConfigureAwait(false);
-
-                    bool isConnectionStringGood = await _unitOfWork.IsDbConnectionStringGood().ConfigureAwait(false);
 
                     if (isConnectionStringGood)
                     {
@@ -94,8 +105,6 @@ namespace OpenAiChat.Services
                     // Ask the service to summarize
                     var summary = await _textService.SummarizeTextAsync(fileUrl).ConfigureAwait(false);
 
-                    bool isConnectionStringGood = await _unitOfWork.IsDbConnectionStringGood().ConfigureAwait(false);
-
                     if (isConnectionStringGood)
                     {
                         var analysisResult = new FileAnalysisResultModel()
@@ -122,8 +131,6 @@ namespace OpenAiChat.Services
                 {
                     // Ask the service to summarize
                     var summary = await _pdfService.SummarizePdfAsync(fileUrl).ConfigureAwait(false);
-
-                    bool isConnectionStringGood = await _unitOfWork.IsDbConnectionStringGood().ConfigureAwait(false);
 
                     if (isConnectionStringGood)
                     {
