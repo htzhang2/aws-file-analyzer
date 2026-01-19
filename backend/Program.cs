@@ -67,6 +67,7 @@ builder.Services.AddSingleton<IImageService, ImageService>();
 builder.Services.AddSingleton<IPdfService, PdfService>();
 
 // Scoped because IUnitOfWork and DbContext
+builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 builder.Services.AddScoped<IFileAnalysisService, FileAnalysisService>();
 
 // JWT authentication

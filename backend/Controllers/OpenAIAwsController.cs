@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OpenAI.Chat;
 using OpenAiChat.Dto;
-using OpenAiChat.Models;
+using OpenAiChat.CustomExceptions;
 using OpenAiChat.Repository;
 using OpenAiChat.Services;
 using System.Net;
@@ -23,6 +23,7 @@ namespace OpenAiChat.Controllers
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
         private readonly IFileAnalysisService _fileAnalysisService;
+        private readonly IFileUploadService _fileUploadService;
 
         public OpenAIAwsController(
             IAmazonS3 s3Client,
@@ -30,7 +31,8 @@ namespace OpenAiChat.Controllers
             ILogger<OpenAIAwsController> logger,
             IUnitOfWork unitOfWork,
             IConfiguration configuration,
-            IFileAnalysisService fileAnalysisService)
+            IFileAnalysisService fileAnalysisService,
+            IFileUploadService fileUploadService)
         {
             _s3Client = s3Client;
             _chatClient = chatClient;
@@ -38,6 +40,7 @@ namespace OpenAiChat.Controllers
             _unitOfWork = unitOfWork;
             _configuration = configuration;
             _fileAnalysisService = fileAnalysisService;
+            _fileUploadService = fileUploadService;
         }
 
         /// <summary>
@@ -213,68 +216,18 @@ namespace OpenAiChat.Controllers
                 return BadRequest("File is empty or not provided.");
             }
 
-            string bucketName = _configuration["AWS:S3BucketName"];
-            if (string.IsNullOrWhiteSpace(bucketName))
-            {
-                return BadRequest("Empty bucket name");
-            }
-
-            bool isConnectionStringGood = await _unitOfWork.IsDbConnectionStringGood().ConfigureAwait(false);
-            
-            if (isConnectionStringGood)
-            {
-                // Check file already loaded before
-                var existingFile = _unitOfWork.FileUploadHistory.Find(f => (
-                    f.LocalFileName == file.FileName &&
-                    f.FileLengthInBytes == file.Length)).FirstOrDefault();
-
-                if (existingFile != null)
-                {
-                    var loadDate = existingFile.LoadTime.ToString("d");
-                    return BadRequest($"File already loaded on {loadDate}!");
-                }
-            }
-
-            var key = Guid.NewGuid().ToString() + Path.GetExtension(file.FileName); // Use a unique key
-
             try
             {
-                var putObjectRequest = new PutObjectRequest
-                {
-                    BucketName = bucketName,
-                    Key = key,
-                    InputStream = file.OpenReadStream(),
-                    ContentType = file.ContentType
-                };
-
-                await _s3Client.PutObjectAsync(putObjectRequest);
-
-                var presignedUrl = await GeneratePreSignedUrl(key, 60, bucketName);    
-
-                // Save file meta data to SQL if connection string is valid
-                if (isConnectionStringGood)
-                {
-                    // prepare file meta information
-                    var model = new FileUploadModel
-                    {
-                        LocalFileName = file.FileName,
-                        FileLengthInBytes = (int)(file.Length),
-                        AwsKey = key,
-                        PresignedUrl = presignedUrl,
-                        FileExtension = file.ContentType,
-                        LoadTime = DateTime.Now
-                    };
-
-
-                    _unitOfWork.FileUploadHistory.Add(model);
-                    await _unitOfWork.CompleteAsync().ConfigureAwait(false);
-                }
-                    
+                var presignedUrl = await _fileUploadService.UploadFileAsync(file);
                 return Ok(new { fileUrl = presignedUrl });
             }
-            catch (AmazonS3Exception ex)
+            catch (UserSetupException ex)
             {
-                return StatusCode(500, $"S3 error: {ex.Message}");
+                return BadRequest($"{ex.Message}");
+            }
+            catch (AwsCloudException ex)
+            {
+                return StatusCode(500, $"{ex.Message}");
             }
             catch (Exception ex)
             {
