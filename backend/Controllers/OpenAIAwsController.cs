@@ -7,7 +7,6 @@ using OpenAI.Chat;
 using OpenAiChat.Dto;
 using OpenAiChat.Repository;
 using OpenAiChat.Services;
-using System.Net;
 
 namespace OpenAiChat.Controllers
 {
@@ -59,46 +58,34 @@ namespace OpenAiChat.Controllers
                 return BadRequest("Empty bucket name");
             }
 
-            try
+            var files = new Dictionary<string, string>();
+            var request = new ListObjectsV2Request
             {
-                var files = new Dictionary<string, string>();
-                var request = new ListObjectsV2Request
-                {
-                    BucketName = bucketName
-                };
+                BucketName = bucketName
+            };
 
-                ListObjectsV2Response response;
-                do
+            ListObjectsV2Response response;
+            do
+            {
+                response = await _s3Client.ListObjectsV2Async(request);
+                if (response != null)
                 {
-                    response = await _s3Client.ListObjectsV2Async(request);
-                    if (response != null)
+                    if (response.S3Objects != null)
                     {
-                        if (response.S3Objects != null)
+                        foreach (var s3Object in response.S3Objects)
                         {
-                            foreach (var s3Object in response.S3Objects)
-                            {
-                                var preSignedUrl = await GeneratePreSignedUrl(s3Object.Key, 60, bucketName);
+                            var preSignedUrl = await GeneratePreSignedUrl(s3Object.Key, 60, bucketName);
 
-                                files[s3Object.Key] = preSignedUrl;
-                            }
+                            files[s3Object.Key] = preSignedUrl;
                         }
-
-                        request.ContinuationToken = response.NextContinuationToken;
                     }
-                    
-                } while (response != null && response.IsTruncated != null ? (bool)(response.IsTruncated) : false);
 
-                return Ok(files);
-
-            }
-            catch (AmazonS3Exception ex)
-            {
-                if (ex.StatusCode == HttpStatusCode.NotFound)
-                {
-                    return BadRequest($"Bucket {bucketName} not exist!");
+                    request.ContinuationToken = response.NextContinuationToken;
                 }
-                return StatusCode(500, $"S3 error: {ex.Message}");
-            }
+                    
+            } while (response != null && response.IsTruncated != null ? (bool)(response.IsTruncated) : false);
+
+            return Ok(files);
         }
 
         /// <summary>
@@ -130,28 +117,21 @@ namespace OpenAiChat.Controllers
                 return BadRequest($"Connection string is wrong!");
             }
 
-            try
-            {
-                // Only take several files
-                var result = await _unitOfWork.FileUploadHistory
-                    .Find(f => f.LoadTime >= fromDate && f.LoadTime <= now)
-                    .Take(filesLimit)
-                    .ToListAsync()
-                    .ConfigureAwait(false);
+            // Only take several files
+            var result = await _unitOfWork.FileUploadHistory
+                .Find(f => f.LoadTime >= fromDate && f.LoadTime <= now)
+                .Take(filesLimit)
+                .ToListAsync()
+                .ConfigureAwait(false);
 
-                if (result != null && result.Any())
-                {
-                    return Ok(result);
-                }
-
-                return NotFound($"No files loaded last {days}");
-                
-            }
-            catch (Exception ex)
+            if (result != null && result.Any())
             {
-                return StatusCode(500, $"EF error: {ex.Message}");
+                return Ok(result);
             }
+
+            return NotFound($"No files loaded last {days}");
         }
+
         /// <summary>
         ///  List all analyzed files
         /// </summary>
@@ -171,32 +151,24 @@ namespace OpenAiChat.Controllers
                 return BadRequest($"Connection string is wrong!");
             }
 
-            try
+            var query = from a in _unitOfWork.FileUploadHistory.GetDbSet()
+                        join b in _unitOfWork.FileAnalysisResult.GetDbSet()
+                        on a.PresignedUrl equals b.PresignedUrl
+                        select new
+                        {
+                            a.LocalFileName,
+                            a.FileExtension,
+                            b.AnalysisText
+                        };
+            var results = await query.ToListAsync()
+                .ConfigureAwait(false);
+
+            if (results != null && results.Any())
             {
-                var query = from a in _unitOfWork.FileUploadHistory.GetDbSet()
-                            join b in _unitOfWork.FileAnalysisResult.GetDbSet()
-                            on a.PresignedUrl equals b.PresignedUrl
-                            select new
-                            {
-                                a.LocalFileName,
-                                a.FileExtension,
-                                b.AnalysisText
-                            };
-                var results = await query.ToListAsync()
-                    .ConfigureAwait(false);
-
-                if (results != null && results.Any())
-                {
-                    return Ok(results);
-                }
-
-                return NotFound($"No files analyzed");
-
+                return Ok(results);
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"EF error: {ex.Message}");
-            }
+
+            return NotFound($"No files analyzed");
         }
 
         /// <summary>
@@ -257,16 +229,8 @@ namespace OpenAiChat.Controllers
                 return BadRequest("No prompt entered!");
             }
 
-            try
-            {
-                ChatCompletion completion = await _chatClient.CompleteChatAsync(prompt).ConfigureAwait(false);
-                return Ok(completion.Content[0].Text);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status429TooManyRequests,
-                     new { message = ex.Message });
-            }
+            ChatCompletion completion = await _chatClient.CompleteChatAsync(prompt).ConfigureAwait(false);
+            return Ok(completion.Content[0].Text);
         }
 
         private async Task<string> GeneratePreSignedUrl(string objectKey, double durationInMinutes, string bucketName)

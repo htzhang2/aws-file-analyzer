@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Diagnostics;
+﻿using Amazon.S3;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
 
@@ -32,6 +33,21 @@ namespace OpenAiChat.CustomExceptions
             // Example of handling specific exceptions
             switch (exception)
             {
+                case AmazonS3Exception:
+                    var s3Ex = exception as AmazonS3Exception;
+
+                    if (s3Ex?.StatusCode == HttpStatusCode.NotFound)
+                    {
+                        problemDetails.Status = (int)HttpStatusCode.BadRequest;
+                        problemDetails.Title = $"AWS Bucket not exist!";
+                    }
+                    else
+                    {
+                        problemDetails.Status = (int)HttpStatusCode.InternalServerError;
+                        problemDetails.Title = $"AWS S3 error: {exception.Message}!";
+                    }
+                    break;
+
                 case ArgumentNullException:
                     problemDetails.Status = (int)HttpStatusCode.BadRequest;
                     problemDetails.Title = "A required argument was null!";
