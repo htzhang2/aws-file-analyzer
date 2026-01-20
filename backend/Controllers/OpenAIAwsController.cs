@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OpenAI.Chat;
 using OpenAiChat.Dto;
-using OpenAiChat.CustomExceptions;
 using OpenAiChat.Repository;
 using OpenAiChat.Services;
 using System.Net;
@@ -216,23 +215,8 @@ namespace OpenAiChat.Controllers
                 return BadRequest("File is empty or not provided.");
             }
 
-            try
-            {
-                var presignedUrl = await _fileUploadService.UploadFileAsync(file);
-                return Ok(new { fileUrl = presignedUrl });
-            }
-            catch (UserSetupException ex)
-            {
-                return BadRequest($"{ex.Message}");
-            }
-            catch (AwsCloudException ex)
-            {
-                return StatusCode(500, $"{ex.Message}");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
+            var presignedUrl = await _fileUploadService.UploadFileAsync(file);
+            return Ok(new { fileUrl = presignedUrl });
         }
 
         /// <summary>
@@ -253,26 +237,8 @@ namespace OpenAiChat.Controllers
 
             string fileUrl = request.fileUrl;
             
-            try
-            {
-                var result = await _fileAnalysisService.AnalyzeFileAsync(fileUrl);
-                return Ok(result);
-            }
-            catch (InvalidDataException)
-            {
-                return BadRequest("Invalid/unsupported url/contentType entered!");
-            }
-            catch (InvalidOperationException ex)
-            {
-                return StatusCode(StatusCodes.Status429TooManyRequests,
-                         new { message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError,
-                        new { message = ex.Message });
-            }
-
+            var result = await _fileAnalysisService.AnalyzeFileAsync(fileUrl);
+            return Ok(result);
         }
 
         /// <summary>

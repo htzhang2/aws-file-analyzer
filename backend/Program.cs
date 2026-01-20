@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using OpenAI.Chat;
+using OpenAiChat.CustomExceptions;
 using OpenAiChat.Data;
 using OpenAiChat.Repository;
 using OpenAiChat.Security.Jwt;
@@ -172,6 +173,11 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 });
+
+// 1. Add services to the container
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails(); // Adds standard problem details support
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -180,6 +186,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseExceptionHandler();
 
 app.UseHttpsRedirection();
 
